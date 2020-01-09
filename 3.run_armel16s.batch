@@ -1,0 +1,92 @@
+# Start by preparing the reference
+pcr.seqs(fasta=silva.bacteria.fasta, start=5650, end=25519, keepdots=F, processors=8 ) # Set the right coordinates to cover your V3 V4 region
+summary.seqs(fasta=current)
+
+# Set working directory
+make.file(inputdir=., type=gz, prefix=armel16s)
+make.contigs(file=armel16s.files, processors=8 ) # Make armel16s.files containing group names and paired reads (NB: Make sure your path contains no underscore)
+summary.seqs(fasta=current) # Examine your read lengths and pick an appropraite maxlength for the next step
+screen.seqs(fasta=current, group=current, summary=current, maxambig=0, maxlength=480)
+#get.current()
+summary.seqs(fasta=current)
+#summary.seqs()
+
+# Processing improved sequences
+unique.seqs(fasta=current) # Assuming there are duplicates reads, take only uniq
+count.seqs(name=current, group=current)
+summary.seqs(count=current)
+align.seqs(fasta=current, reference=silva.bacteria.pcr.fasta) # Now aling your reads to the reference
+summary.seqs(fasta=current, count=current)
+screen.seqs(fasta=current, count=current, summary=current, start=738, end=19666, maxhomop=8 ) # Check the read leangths and their start and end positions from the summary above. 
+summary.seqs(fasta=current, count=current)
+filter.seqs(fasta=current, vertical=T, trump=.)
+unique.seqs(fasta=current, count=current)
+pre.cluster(fasta=current, count=current, diffs=2)
+chimera.vsearch(fasta=current, count=current, dereplicate=t) # Search for chimeras. Notice the chemras found with and without taking into account abundance
+remove.seqs(fasta=current, accnos=current)
+summary.seqs(fasta=current, count=current)
+classify.seqs(fasta=current, count=current, reference=trainset9_032012.pds.fasta, taxonomy=trainset9_032012.pds.tax, cutoff=8 0)
+remove.lineage(fasta=current, count=current, taxonomy=current, taxon=Chloroplast-Mitochondria-unknown-Archaea-Eukaryota)
+summary.tax(taxonomy=current, count=current)
+
+# Cluster sequences into OTUs and check spurious OTUs
+dist.seqs(fasta=current, cutoff=0.03, processors=8 )
+#cluster(column=current, count=current, cutoff=0.03)
+cluster.split(fasta=current, count=current, taxonomy=current, splitmethod=classify, taxlevel=4, cutoff=0.03, processors=8 )
+make.shared(list=current, count=current, label=0.03)
+rarefaction.single(shared=current, processors=8 )
+
+# OTUs
+dist.seqs(fasta=current, cutoff=0.03, processors=8 )
+#cluster(column=current, count=current, cutoff=0.03)
+cluster.split(fasta=current, count=current, taxonomy=current, splitmethod=classify, taxlevel=4, cutoff=0.03, processors=8 )
+make.shared(list=current, count=current, label=0.03)
+classify.otu(list=current, count=current, taxonomy=current, label=0.03)
+
+# Phylotypes
+phylotype(taxonomy=current)
+make.shared(list=current, count=current, label=1)
+classify.otu(list=current, count=current, taxonomy=current, label=1)
+
+# Phylogenetic
+dist.seqs(fasta=current, output=lt, processors=8 )
+clearcut(phylip=current)
+
+# Analysis
+#rename.file(taxonomy=armel16s.trim.contigs.good.unique.good.filter.unique.precluster.pick.opti_mcc.0.03.cons.taxonomy, shared=armel16s.trim.contigs.good.unique.good.filter.unique.precluster.pick.opti_mcc.shared)
+count.groups(shared=current) # Check the sequence size of the samples (groups)
+sub.sample(shared=current, size=6347) # Use the smallest sequence size 
+
+# OTU-based analysis
+rarefaction.single(shared=current, calc=sobs, freq=100, processors=8 )
+summary.single(shared=current, calc=nseqs-coverage-sobs-invsimpson, subsample=T)
+
+# Beta diversity measurements
+dist.shared(shared=current, calc=thetayc-jclass, subsample=t, processors=8 )
+pcoa(phylip=current)
+nmds(phylip=current)
+nmds(phylip=current, mindim=3, maxdim=3)
+
+amova(phylip=current, design=inclusion.level.txt) # You'll need your metadata here to create a file with groups (samples) in first column and the variable to measure in the second column with no header. Replace mouse.time.design with the new file
+amova(phylip=current, design=age.weeks.txt)
+amova(phylip=current, design=treatment.plant.part.txt)
+amova(phylip=current, design=organ.location.txt)
+
+homova(phylip=current, design=inclusion.level.txt) # Same thing as above. You can therefore run multiple amovas with as many variables you have
+hamova(phylip=current, design=age.weeks.txt)
+hamova(phylip=current, design=treatment.plant.part.txt)
+hamova(phylip=current, design=organ.location.txt)
+
+#corr.axes(axes=current, shared=current, method=spearman, numaxes=3)
+#corr.axes(axes=current, metadata=mouse.dpw.metadata, method=spearman, numaxes=3) # This requires that you provide data indicating metadata about each sample. For example, you may know the weight, height, blood pressure, etc. of the subjects in the samples. The file has two columns, col1 is the group (sample) name and col2 the variable with a header as: group variable
+get.communitytype(shared=current)
+
+# Population-level analysis (Again, you need the metadata with variables to run these lines)
+#metastats(shared=current, design=mouse.time.design, processors=8 ) #groups=F3D0-F3D1-F3D141-F3D142-F3D144-F3D145-F3D146-F3D147-F3D148-F3D149-F3D150-F3D2-F3D3-F3D5-F3D6-F3D7-F3D8-F3D9, 
+#lefse(shared=current, design=mouse.time.design)
+
+# Phylogeny-based analysis
+# Alpha diversity
+phylo.diversity(tree=current, count=current, rarefy=T, processors=8 )
+unifrac.unweighted(tree=current, count=current, distance=lt, processors=8 , random=F, subsample=t)
+unifrac.weighted(tree=current, count=current, distance=lt, processors=8 , random=F, subsample=t)
